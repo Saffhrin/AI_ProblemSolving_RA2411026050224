@@ -1,8 +1,11 @@
 import streamlit as st
 
+# -------------------------------
 # CSP Logic
+# -------------------------------
+
 def is_valid(region, color, assignment, neighbors):
-    for neighbor in neighbors[region]:
+    for neighbor in neighbors.get(region, []):
         if neighbor in assignment and assignment[neighbor] == color:
             return False
     return True
@@ -23,70 +26,86 @@ def backtrack(assignment, regions, colors, neighbors):
 
     return None
 
+# -------------------------------
 # UI
+# -------------------------------
+
 st.title("Map Coloring Problem (CSP)")
 
-regions = ["A", "B", "C", "D"]
-colors = ["Red", "Green", "Blue"]
-neighbors = {
-    "A": ["B", "C"],
-    "B": ["A", "C", "D"],
-    "C": ["A", "B", "D"],
-    "D": ["B", "C"]
-}
+st.subheader("Step 1: Enter Regions")
+regions_input = st.text_input("Enter regions (comma separated)", "A,B,C,D")
+regions = [r.strip() for r in regions_input.split(",") if r.strip()]
+
+st.subheader("Step 2: Enter Neighbors")
+
+neighbors = {}
+for region in regions:
+    neighbors_input = st.text_input(f"Neighbors of {region}", "")
+    neighbors[region] = [n.strip() for n in neighbors_input.split(",") if n.strip()]
+
+st.subheader("Step 3: Select Colors")
+color_count = st.selectbox("Number of colors", [3, 4])
+
+if color_count == 3:
+    colors = ["Red", "Green", "Blue"]
+else:
+    colors = ["Red", "Green", "Blue", "Yellow"]
+
+# -------------------------------
+# Solve Button
+# -------------------------------
 
 if st.button("Solve"):
-    solution = backtrack({}, regions, colors, neighbors)
-
-    if solution:
-        st.success("Solution Found!")
-
-        st.subheader("Final Color Assignment")
-        for r in sorted(solution):
-            st.write(f"{r} → {solution[r]}")
-
-        st.info("All constraints satisfied: No adjacent regions share the same color")
-
-        # -------------------------------
-        # VISUALIZATION (COLORED BOXES)
-        # -------------------------------
-        st.subheader("Map Visualization")
-
-        color_map = {
-            "Red": "#FF4B4B",
-            "Green": "#2ECC71",
-            "Blue": "#3498DB"
-        }
-
-        # Layout in 2x2 grid
-        col1, col2 = st.columns(2)
-
-        positions = ["A", "B", "C", "D"]
-
-        for i, region in enumerate(positions):
-            color = color_map[solution[region]]
-
-            box = f"""
-            <div style="
-                width:100px;
-                height:100px;
-                background-color:{color};
-                display:flex;
-                align-items:center;
-                justify-content:center;
-                color:white;
-                font-size:24px;
-                font-weight:bold;
-                border-radius:10px;
-                margin:10px;">
-                {region}
-            </div>
-            """
-
-            if i % 2 == 0:
-                col1.markdown(box, unsafe_allow_html=True)
-            else:
-                col2.markdown(box, unsafe_allow_html=True)
-
+    if not regions:
+        st.error("Please enter regions")
     else:
-        st.error("No solution found")
+        solution = backtrack({}, regions, colors, neighbors)
+
+        if solution:
+            st.success("Solution Found!")
+
+            # Output
+            st.subheader("Final Color Assignment")
+            for r in sorted(solution):
+                st.write(f"{r} → {solution[r]}")
+
+            st.info("All constraints satisfied: No adjacent regions share the same color")
+
+            # -------------------------------
+            # Visualization
+            # -------------------------------
+            st.subheader("Map Visualization")
+
+            color_map = {
+                "Red": "#FF4B4B",
+                "Green": "#2ECC71",
+                "Blue": "#3498DB",
+                "Yellow": "#F1C40F"
+            }
+
+            cols = st.columns(4)
+
+            for i, region in enumerate(solution):
+                color = color_map[solution[region]]
+
+                box = f"""
+                <div style="
+                    width:80px;
+                    height:80px;
+                    background-color:{color};
+                    display:flex;
+                    align-items:center;
+                    justify-content:center;
+                    color:white;
+                    font-size:20px;
+                    font-weight:bold;
+                    border-radius:8px;
+                    margin:5px;">
+                    {region}
+                </div>
+                """
+
+                cols[i % 4].markdown(box, unsafe_allow_html=True)
+
+        else:
+            st.error("No valid coloring possible with given constraints")
