@@ -20,4 +20,4 @@ This project solves the Map Coloring Problem using a Constraint Satisfaction Pro
 
 ### Option 2: Run Online (Web App)
 Open the interactive website:  
-https://your-streamlit-link.streamlit.app
+https://aiproblemsolvingra2411026050224-olxw7xkbbyfc7uiu5gduef.streamlit.app/
