@@ -40,7 +40,17 @@ if st.button("Solve"):
 
     if solution:
         st.success("Solution Found!")
-        for r in solution:
+
+        st.subheader("Final Color Assignment")
+        for r in sorted(solution):
             st.write(f"{r} → {solution[r]}")
+
+        st.info("All constraints satisfied: No adjacent regions share the same color")
+
+        st.subheader("Color Summary")
+        for color in set(solution.values()):
+            regions_with_color = [r for r in solution if solution[r] == color]
+            st.write(f"{color}: {', '.join(regions_with_color)}")
+
     else:
         st.error("No solution found")
