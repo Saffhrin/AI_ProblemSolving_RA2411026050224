@@ -47,10 +47,46 @@ if st.button("Solve"):
 
         st.info("All constraints satisfied: No adjacent regions share the same color")
 
-        st.subheader("Color Summary")
-        for color in set(solution.values()):
-            regions_with_color = [r for r in solution if solution[r] == color]
-            st.write(f"{color}: {', '.join(regions_with_color)}")
+        # -------------------------------
+        # VISUALIZATION (COLORED BOXES)
+        # -------------------------------
+        st.subheader("Map Visualization")
+
+        color_map = {
+            "Red": "#FF4B4B",
+            "Green": "#2ECC71",
+            "Blue": "#3498DB"
+        }
+
+        # Layout in 2x2 grid
+        col1, col2 = st.columns(2)
+
+        positions = ["A", "B", "C", "D"]
+
+        for i, region in enumerate(positions):
+            color = color_map[solution[region]]
+
+            box = f"""
+            <div style="
+                width:100px;
+                height:100px;
+                background-color:{color};
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                color:white;
+                font-size:24px;
+                font-weight:bold;
+                border-radius:10px;
+                margin:10px;">
+                {region}
+            </div>
+            """
+
+            if i % 2 == 0:
+                col1.markdown(box, unsafe_allow_html=True)
+            else:
+                col2.markdown(box, unsafe_allow_html=True)
 
     else:
         st.error("No solution found")
