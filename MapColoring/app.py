@@ -1,4 +1,6 @@
 import streamlit as st
+import networkx as nx
+import matplotlib.pyplot as plt
 
 # -------------------------------
 # CSP Logic
@@ -30,82 +32,81 @@ def backtrack(assignment, regions, colors, neighbors):
 # UI
 # -------------------------------
 
-st.title("Map Coloring Problem (CSP)")
+st.set_page_config(page_title="Map Coloring CSP", page_icon="🎨")
 
-st.subheader("Step 1: Enter Regions")
-regions_input = st.text_input("Enter regions (comma separated)", "A,B,C,D")
+st.title("🎨 Map Coloring Problem (CSP)")
+st.markdown("Assign colors so that no adjacent regions share the same color.")
+
+st.subheader("Enter Regions")
+regions_input = st.text_input("Regions (comma separated)", "A,B,C,D")
 regions = [r.strip() for r in regions_input.split(",") if r.strip()]
 
-st.subheader("Step 2: Enter Neighbors")
+st.subheader("Enter Neighbor Relationships")
 
 neighbors = {}
 for region in regions:
     neighbors_input = st.text_input(f"Neighbors of {region}", "")
     neighbors[region] = [n.strip() for n in neighbors_input.split(",") if n.strip()]
 
-st.subheader("Step 3: Select Colors")
+st.subheader("Select Colors")
 color_count = st.selectbox("Number of colors", [3, 4])
 
 if color_count == 3:
-    colors = ["Red", "Green", "Blue"]
+    colors = ["red", "green", "blue"]
 else:
-    colors = ["Red", "Green", "Blue", "Yellow"]
+    colors = ["red", "green", "blue", "yellow"]
 
 # -------------------------------
-# Solve Button
+# Solve
 # -------------------------------
 
 if st.button("Solve"):
-    if not regions:
-        st.error("Please enter regions")
+
+    solution = backtrack({}, regions, colors, neighbors)
+
+    if solution:
+        st.success("Solution Found!")
+
+        st.subheader("Color Assignment")
+        for r in solution:
+            st.write(f"{r} → {solution[r]}")
+
+        # -------------------------------
+        # Graph Visualization
+        # -------------------------------
+
+        st.subheader("Graph Visualization")
+
+        G = nx.Graph()
+
+        # Add nodes
+        for r in regions:
+            G.add_node(r)
+
+        # Add edges
+        for r in neighbors:
+            for n in neighbors[r]:
+                G.add_edge(r, n)
+
+        # Assign colors
+        node_colors = [solution[node] for node in G.nodes()]
+
+        # Draw graph
+        pos = nx.spring_layout(G)
+
+        fig, ax = plt.subplots()
+        nx.draw(
+            G,
+            pos,
+            with_labels=True,
+            node_color=node_colors,
+            node_size=2000,
+            font_size=12,
+            font_color="white",
+            ax=ax
+        )
+
+        st.pyplot(fig)
+
     else:
-        solution = backtrack({}, regions, colors, neighbors)
-
-        if solution:
-            st.success("Solution Found!")
-
-            # Output
-            st.subheader("Final Color Assignment")
-            for r in sorted(solution):
-                st.write(f"{r} → {solution[r]}")
-
-            st.info("All constraints satisfied: No adjacent regions share the same color")
-
-            # -------------------------------
-            # Visualization
-            # -------------------------------
-            st.subheader("Map Visualization")
-
-            color_map = {
-                "Red": "#FF4B4B",
-                "Green": "#2ECC71",
-                "Blue": "#3498DB",
-                "Yellow": "#F1C40F"
-            }
-
-            cols = st.columns(4)
-
-            for i, region in enumerate(solution):
-                color = color_map[solution[region]]
-
-                box = f"""
-                <div style="
-                    width:80px;
-                    height:80px;
-                    background-color:{color};
-                    display:flex;
-                    align-items:center;
-                    justify-content:center;
-                    color:white;
-                    font-size:20px;
-                    font-weight:bold;
-                    border-radius:8px;
-                    margin:5px;">
-                    {region}
-                </div>
-                """
-
-                cols[i % 4].markdown(box, unsafe_allow_html=True)
-
-        else:
-            st.error("No valid coloring possible with given constraints")
+        st.error("No valid coloring found")
