@@ -7,11 +7,11 @@
 ## Repository Structure
 
 ```
-AI_ProblemSolving_RA2411026050224/
+AI_ProblemSolving_YourName/
 ├── README.md
+├── index.html                  ← move here (root level)
 └── map_coloring/
-    ├── map_coloring_csp.py     ← Python solver + Tkinter GUI
-    └── index.html              ← Interactive web UI
+    └── map_coloring_csp.py
 ```
 
 ---
