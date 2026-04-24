@@ -80,7 +80,7 @@
   .tab{flex:1;padding:10px;font-size:12px;font-weight:500;text-align:center;cursor:pointer;color:var(--text2);border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-0.5px;transition:color .15s,border-color .15s}
   .tab.active{color:var(--text);border-bottom-color:var(--text)}
 
-  .canvas-wrap{position:relative;min-height:300px;background:var(--surface)}
+  .canvas-wrap{position:relative;min-height:320px;height:320px;background:var(--surface)}
   canvas{display:block;width:100%;height:100%}
   .hint{font-size:12px;color:var(--text3);text-align:center;padding:3rem 1rem;line-height:1.7;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:100%}
 
@@ -258,85 +258,123 @@ function drawCanvas(){
   const wrap=document.getElementById('canvasWrap');
   if(regions.length===0){canvas.style.display='none';hint.style.display='block';return;}
   canvas.style.display='block';hint.style.display='none';
-  const W=wrap.offsetWidth||500,H=Math.max(300,wrap.offsetHeight||300);
+  const W=wrap.offsetWidth||500,H=320;
   canvas.width=W*2;canvas.height=H*2;
   canvas.style.width=W+'px';canvas.style.height=H+'px';
   const ctx=canvas.getContext('2d');ctx.scale(2,2);
   currentTab==='map'?drawMapView(ctx,W,H):drawGraphView(ctx,W,H);
 }
 
-function getSeeds(W,H){
-  const n=regions.length,cx=W/2,cy=H/2,r=Math.min(W,H)*0.33;
-  return regions.map((_,i)=>{
-    const a=(2*Math.PI*i/n)-Math.PI/2;
-    return{x:cx+r*Math.cos(a),y:cy+r*Math.sin(a)};
-  });
-}
-
-function hexToRgb(h){
-  return[parseInt(h.slice(1,3),16)||180,parseInt(h.slice(3,5),16)||180,parseInt(h.slice(5,7),16)||180];
+// Returns tile polygons and label centers that always fill the canvas neatly
+function getTiles(W,H,n){
+  const pad=18;
+  const iW=W-pad*2, iH=H-pad*2;
+  const tiles=[];
+  if(n===1){
+    tiles.push({poly:[[pad,pad],[W-pad,pad],[W-pad,H-pad],[pad,H-pad]],cx:W/2,cy:H/2});
+  } else if(n===2){
+    tiles.push({poly:[[pad,pad],[W/2,pad],[W/2,H-pad],[pad,H-pad]],cx:W/4+pad/2,cy:H/2});
+    tiles.push({poly:[[W/2,pad],[W-pad,pad],[W-pad,H-pad],[W/2,H-pad]],cx:W*3/4-pad/2,cy:H/2});
+  } else if(n===3){
+    const mx=W/2, my=H/2;
+    tiles.push({poly:[[pad,pad],[W-pad,pad],[mx,my]],cx:W/2,cy:H/4+pad/2});
+    tiles.push({poly:[[pad,pad],[mx,my],[pad,H-pad]],cx:pad+iW/4,cy:H/2});
+    tiles.push({poly:[[W-pad,pad],[W-pad,H-pad],[pad,H-pad],[mx,my]],cx:W/2+iW/4,cy:H*2/3});
+  } else if(n===4){
+    const mx=W/2, my=H/2;
+    tiles.push({poly:[[pad,pad],[mx,pad],[mx,my],[pad,my]],cx:W/4+pad/2,cy:H/4+pad/2});
+    tiles.push({poly:[[mx,pad],[W-pad,pad],[W-pad,my],[mx,my]],cx:W*3/4-pad/2,cy:H/4+pad/2});
+    tiles.push({poly:[[pad,my],[mx,my],[mx,H-pad],[pad,H-pad]],cx:W/4+pad/2,cy:H*3/4-pad/2});
+    tiles.push({poly:[[mx,my],[W-pad,my],[W-pad,H-pad],[mx,H-pad]],cx:W*3/4-pad/2,cy:H*3/4-pad/2});
+  } else if(n===5){
+    const mx=W/2,my=H/2;
+    tiles.push({poly:[[pad,pad],[mx,pad],[mx,my],[pad,my]],cx:W/4+pad/2,cy:H/4+pad/2});
+    tiles.push({poly:[[mx,pad],[W-pad,pad],[W-pad,my],[mx,my]],cx:W*3/4-pad/2,cy:H/4+pad/2});
+    tiles.push({poly:[[pad,my],[W/3+pad,my],[W/3+pad,H-pad],[pad,H-pad]],cx:W/6+pad,cy:H*3/4-pad/2});
+    tiles.push({poly:[[W/3+pad,my],[W*2/3-pad,my],[W*2/3-pad,H-pad],[W/3+pad,H-pad]],cx:W/2,cy:H*3/4-pad/2});
+    tiles.push({poly:[[W*2/3-pad,my],[W-pad,my],[W-pad,H-pad],[W*2/3-pad,H-pad]],cx:W*5/6-pad/2,cy:H*3/4-pad/2});
+  } else {
+    // generic grid layout for 6+
+    const cols=Math.ceil(Math.sqrt(n)), rows=Math.ceil(n/cols);
+    const tw=iW/cols, th=iH/rows;
+    for(let i=0;i<n;i++){
+      const c=i%cols, r=Math.floor(i/cols);
+      const x=pad+c*tw, y=pad+r*th;
+      tiles.push({poly:[[x,y],[x+tw,y],[x+tw,y+th],[x,y+th]],cx:x+tw/2,cy:y+th/2});
+    }
+  }
+  return tiles;
 }
 
 function drawMapView(ctx,W,H){
   const dark=isDark();
   ctx.clearRect(0,0,W,H);
-  const seeds=getSeeds(W,H);
-  const STEP=3,cols=Math.ceil(W/STEP),rows=Math.ceil(H/STEP);
-  const cell=new Int16Array(cols*rows);
-  for(let py=0;py<rows;py++)for(let px=0;px<cols;px++){
-    let best=0,bd=1e12;
-    seeds.forEach((s,i)=>{const d=(px*STEP-s.x)**2+(py*STEP-s.y)**2;if(d<bd){bd=d;best=i;}});
-    cell[py*cols+px]=best;
-  }
-  const img=ctx.createImageData(W,H);const data=img.data;
-  for(let py=0;py<rows;py++)for(let px=0;px<cols;px++){
-    const ci=cell[py*cols+px];
-    const r=regions[ci];
+  // background
+  ctx.fillStyle=dark?'#1c1c1a':'#f0efeb';
+  ctx.fillRect(0,0,W,H);
+
+  const tiles=getTiles(W,H,regions.length);
+  tiles.forEach((tile,i)=>{
+    const r=regions[i];
     const col=solution&&solution!=='fail'?COLORS.find(c=>c.name===solution[r]):null;
-    const hex=col?col.hex:(dark?'#2e2e2b':'#e8e6de');
-    let bound=false;
-    for(const[dx,dy]of[[0,1],[0,-1],[1,0],[-1,0]]){
-      const nx=px+dx,ny=py+dy;
-      if(nx<0||ny<0||nx>=cols||ny>=rows){bound=true;break;}
-      if(cell[ny*cols+nx]!==ci){bound=true;break;}
+    const fill=col?(col.hex+'bb'):(dark?'#2e2e2b':'#e0dfd8');
+    const stroke=col?col.hex:(dark?'#4a4a45':'#b8b6ae');
+
+    ctx.beginPath();
+    tile.poly.forEach(([x,y],j)=>j===0?ctx.moveTo(x,y):ctx.lineTo(x,y));
+    ctx.closePath();
+    ctx.fillStyle=fill;
+    ctx.fill();
+    ctx.strokeStyle=stroke;
+    ctx.lineWidth=2;
+    ctx.stroke();
+
+    // label
+    ctx.font='bold 14px system-ui,sans-serif';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillStyle=col?'#fff':(dark?'#ccc':'#444');
+    ctx.fillText(r,tile.cx,tile.cy);
+    if(col){
+      ctx.font='10px system-ui';
+      ctx.fillStyle=col?'rgba(255,255,255,0.75)':(dark?'#888':'#888');
+      ctx.fillText(col.name,tile.cx,tile.cy+16);
     }
-    const rgb=hexToRgb(hex),f=bound?.6:1;
-    for(let sy=0;sy<STEP&&py*STEP+sy<H;sy++)for(let sx=0;sx<STEP&&px*STEP+sx<W;sx++){
-      const idx=((py*STEP+sy)*W+(px*STEP+sx))*4;
-      data[idx]=Math.round(rgb[0]*f);data[idx+1]=Math.round(rgb[1]*f);data[idx+2]=Math.round(rgb[2]*f);data[idx+3]=255;
-    }
-  }
-  ctx.putImageData(img,0,0);
-  seeds.forEach((s,i)=>{
-    const col=solution&&solution!=='fail'?COLORS.find(c=>c.name===solution[regions[i]]):null;
-    ctx.font='bold 13px system-ui,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillStyle=col?col.hex:(dark?'rgba(255,255,255,.5)':'rgba(0,0,0,.4)');
-    ctx.fillText(regions[i],s.x,s.y);
   });
 }
 
 function drawGraphView(ctx,W,H){
   const dark=isDark();
   ctx.clearRect(0,0,W,H);
-  const seeds=getSeeds(W,H);
+  ctx.fillStyle=dark?'#1c1c1a':'#f0efeb';
+  ctx.fillRect(0,0,W,H);
+
+  const tiles=getTiles(W,H,regions.length);
+  const pos=regions.map((_,i)=>({x:tiles[i]?.cx||W/2,y:tiles[i]?.cy||H/2}));
+
   const drawn=new Set();
   adjacency.forEach(([a,b])=>{
     const ia=regions.indexOf(a),ib=regions.indexOf(b);
     if(ia<0||ib<0)return;
     const key=[ia,ib].sort().join('-');if(drawn.has(key))return;drawn.add(key);
-    ctx.beginPath();ctx.moveTo(seeds[ia].x,seeds[ia].y);ctx.lineTo(seeds[ib].x,seeds[ib].y);
-    ctx.strokeStyle=dark?'rgba(255,255,255,.1)':'rgba(0,0,0,.1)';ctx.lineWidth=1.5;ctx.setLineDash([4,4]);ctx.stroke();ctx.setLineDash([]);
+    ctx.beginPath();ctx.moveTo(pos[ia].x,pos[ia].y);ctx.lineTo(pos[ib].x,pos[ib].y);
+    ctx.strokeStyle=dark?'rgba(255,255,255,.15)':'rgba(0,0,0,.15)';
+    ctx.lineWidth=1.5;ctx.setLineDash([5,4]);ctx.stroke();ctx.setLineDash([]);
   });
-  const nr=22;
+
+  const nr=24;
   regions.forEach((r,i)=>{
-    const{x,y}=seeds[i];
+    const{x,y}=pos[i];
     const col=solution&&solution!=='fail'?COLORS.find(c=>c.name===solution[r]):null;
     ctx.beginPath();ctx.arc(x,y,nr,0,Math.PI*2);
-    ctx.fillStyle=col?col.hex:(dark?'#333':'#e8e6de');ctx.fill();
-    ctx.strokeStyle=col?col.hex:(dark?'#555':'#c8c6bc');ctx.lineWidth=2;ctx.stroke();
-    ctx.font='bold 12px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillStyle=col?col.hex:(dark?'#333':'#dddbd4');ctx.fill();
+    ctx.strokeStyle=col?col.hex:(dark?'#555':'#b8b6ae');ctx.lineWidth=2.5;ctx.stroke();
+    ctx.font='bold 13px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.fillStyle=col?'#fff':(dark?'#ddd':'#333');ctx.fillText(r,x,y);
-    if(col){ctx.font='10px system-ui';ctx.fillStyle=dark?'rgba(255,255,255,.4)':'rgba(0,0,0,.4)';ctx.fillText(col.name,x,y+nr+12);}
+    if(col){
+      ctx.font='10px system-ui';
+      ctx.fillStyle=dark?'rgba(255,255,255,.5)':'rgba(0,0,0,.4)';
+      ctx.fillText(col.name,x,y+nr+13);
+    }
   });
 }
 
