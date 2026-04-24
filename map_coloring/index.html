@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Map Coloring — CSP Solver</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#f7f7f5;--surface:#ffffff;--surface2:#f0efeb;--border:#e2e0d8;--border2:#c8c6bc;
+    --text:#1a1a18;--text2:#6b6a64;--text3:#9b9a94;
+    --info-bg:#e6f1fb;--info-text:#0c447c;
+    --success-bg:#eaf3de;--success-text:#3b6d11;
+    --warn-bg:#faeeda;--warn-text:#633806;
+    --danger-bg:#fcebeb;--danger-text:#a32d2d;
+    --radius:8px;--radius-lg:12px;--radius-xl:16px;
+    --mono:'Courier New',Courier,monospace;
+  }
+  @media(prefers-color-scheme:dark){
+    :root{
+      --bg:#1c1c1a;--surface:#252523;--surface2:#2e2e2b;--border:#3a3a36;--border2:#4a4a45;
+      --text:#e8e6de;--text2:#9b9a94;--text3:#6b6a64;
+      --info-bg:#0c2a44;--info-text:#85b7eb;
+      --success-bg:#152a09;--success-text:#97c459;
+      --warn-bg:#2a1f06;--warn-text:#fac775;
+      --danger-bg:#2a0f0f;--danger-text:#f09595;
+    }
+  }
+  body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:1.5rem 1rem}
+  h1{font-size:20px;font-weight:600;margin-bottom:4px}
+  .subtitle{font-size:13px;color:var(--text2);margin-bottom:1.5rem}
+  .badge{display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;background:var(--info-bg);color:var(--info-text);vertical-align:middle;margin-left:8px;letter-spacing:.06em;text-transform:uppercase}
+
+  .app{display:grid;grid-template-columns:260px 1fr;gap:1rem;max-width:900px;margin:0 auto}
+  @media(max-width:640px){.app{grid-template-columns:1fr}}
+
+  .sidebar{display:flex;flex-direction:column;gap:0;background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-xl);overflow:hidden}
+  .sb-sec{padding:14px 16px;border-bottom:0.5px solid var(--border)}
+  .sb-sec:last-child{border-bottom:none}
+  .sb-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text2);margin-bottom:10px}
+
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+  .chip{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:20px;font-size:12px;font-weight:500;border:0.5px solid var(--border2);background:var(--surface2);color:var(--text)}
+  .chip .x{font-size:11px;color:var(--text3);cursor:pointer;padding:0 2px}
+  .chip .x:hover{color:var(--danger-text)}
+
+  .add-row{display:flex;gap:6px}
+  .add-row input{flex:1;font-size:12px;padding:6px 8px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--surface2);color:var(--text);outline:none}
+  .add-row input:focus{border-color:var(--border2)}
+  .add-row button{width:28px;height:28px;border:none;background:var(--text);color:var(--bg);border-radius:var(--radius);cursor:pointer;font-size:18px;line-height:1;flex-shrink:0}
+
+  .adj-list{display:flex;flex-direction:column;gap:5px;margin-bottom:8px;max-height:130px;overflow-y:auto}
+  .adj-item{display:flex;align-items:center;gap:6px;font-size:12px}
+  .adj-item span.name{flex:1;color:var(--text)}
+  .adj-item .sep{color:var(--text3)}
+  .adj-item .x{font-size:11px;color:var(--text3);cursor:pointer;padding:2px 5px}
+  .adj-item .x:hover{color:var(--danger-text)}
+  .adj-add{display:flex;gap:5px;align-items:center}
+  .adj-add select{flex:1;font-size:11px;padding:4px 6px;border:0.5px solid var(--border2);border-radius:6px;background:var(--surface2);color:var(--text);outline:none}
+  .adj-add .sep{font-size:11px;color:var(--text3)}
+  .adj-add button{font-size:11px;padding:4px 10px;border:0.5px solid var(--border2);border-radius:6px;background:var(--surface2);color:var(--text);cursor:pointer}
+  .adj-add button:hover{background:var(--border)}
+
+  .palette{display:flex;gap:8px;flex-wrap:wrap}
+  .cpill{width:22px;height:22px;border-radius:50%;cursor:pointer;border:2.5px solid transparent;transition:transform .15s,border-color .15s}
+  .cpill.active{border-color:var(--text);transform:scale(1.2)}
+  .cpill.off{opacity:.3}
+
+  .action-area{padding:14px 16px;display:flex;flex-direction:column;gap:8px;margin-top:auto}
+  .btn-solve{width:100%;padding:10px;background:var(--text);color:var(--bg);border:none;border-radius:var(--radius-lg);font-size:13px;font-weight:600;cursor:pointer;transition:opacity .15s}
+  .btn-solve:hover{opacity:.8}
+  .btn-row{display:flex;gap:6px}
+  .btn-sm{flex:1;padding:7px;background:none;border:0.5px solid var(--border2);border-radius:var(--radius);font-size:12px;cursor:pointer;color:var(--text);transition:background .15s}
+  .btn-sm:hover{background:var(--surface2)}
+
+  .main{display:flex;flex-direction:column;gap:1rem}
+  .card{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-xl);overflow:hidden}
+
+  .tabs{display:flex;border-bottom:0.5px solid var(--border)}
+  .tab{flex:1;padding:10px;font-size:12px;font-weight:500;text-align:center;cursor:pointer;color:var(--text2);border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-0.5px;transition:color .15s,border-color .15s}
+  .tab.active{color:var(--text);border-bottom-color:var(--text)}
+
+  .canvas-wrap{position:relative;min-height:300px;background:var(--surface)}
+  canvas{display:block;width:100%;height:100%}
+  .hint{font-size:12px;color:var(--text3);text-align:center;padding:3rem 1rem;line-height:1.7;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:100%}
+
+  .result-card{padding:14px 16px}
+  .res-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .res-title{font-size:12px;font-weight:600;color:var(--text)}
+  .pill{font-size:11px;padding:3px 10px;border-radius:20px;font-weight:500}
+  .pill.ok{background:var(--success-bg);color:var(--success-text)}
+  .pill.err{background:var(--danger-bg);color:var(--danger-text)}
+  .pill.idle{background:var(--surface2);color:var(--text2)}
+  .res-chips{display:flex;flex-wrap:wrap;gap:7px}
+  .rchip{display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:var(--radius);border:0.5px solid var(--border);background:var(--surface)}
+  .rchip .dot{width:9px;height:9px;border-radius:50%}
+  .rchip .rn{font-size:12px;font-weight:600;color:var(--text)}
+  .rchip .rc{font-size:11px;color:var(--text2)}
+
+  .trace-card{padding:12px 16px}
+  .trace-inner{font-family:var(--mono);font-size:11px;color:var(--text2);max-height:80px;overflow-y:auto;line-height:1.8}
+  .t-a{color:#3b6d11}.t-b{color:#854f0b}
+  @media(prefers-color-scheme:dark){.t-a{color:#97c459}.t-b{color:#fac775}}
+</style>
+</head>
+<body>
+
+<div style="max-width:900px;margin:0 auto">
+  <h1>Map Coloring Solver <span class="badge">CSP</span></h1>
+  <p class="subtitle">Constraint Satisfaction Problem — backtracking with MRV heuristic</p>
+
+  <div class="app">
+    <div class="sidebar">
+      <div class="sb-sec">
+        <div class="sb-label">Regions</div>
+        <div class="chips" id="regionChips"></div>
+        <div class="add-row">
+          <input id="newRegion" placeholder="Region name" maxlength="12" onkeydown="if(event.key==='Enter')addRegion()"/>
+          <button onclick="addRegion()">+</button>
+        </div>
+      </div>
+
+      <div class="sb-sec" style="flex:1;overflow:hidden;display:flex;flex-direction:column">
+        <div class="sb-label">Adjacency</div>
+        <div class="adj-list" id="adjList"></div>
+        <div class="adj-add">
+          <select id="adjA"></select>
+          <span class="sep">—</span>
+          <select id="adjB"></select>
+          <button onclick="addAdj()">Add</button>
+        </div>
+      </div>
+
+      <div class="sb-sec">
+        <div class="sb-label">Available colors</div>
+        <div class="palette" id="palette"></div>
+      </div>
+
+      <div class="action-area">
+        <button class="btn-solve" onclick="solve()">Solve →</button>
+        <div class="btn-row">
+          <button class="btn-sm" onclick="loadSample()">Sample</button>
+          <button class="btn-sm" onclick="clearAll()">Clear</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="main">
+      <div class="card">
+        <div class="tabs">
+          <button class="tab active" id="tab-map" onclick="switchTab('map')">Map view</button>
+          <button class="tab" id="tab-graph" onclick="switchTab('graph')">Graph view</button>
+        </div>
+        <div class="canvas-wrap" id="canvasWrap">
+          <canvas id="mapCanvas"></canvas>
+          <div class="hint" id="hintMsg">Add regions and adjacency,<br>then click Solve →</div>
+        </div>
+      </div>
+
+      <div class="card result-card">
+        <div class="res-head">
+          <span class="res-title">Assignment</span>
+          <span class="pill idle" id="statusPill">waiting</span>
+        </div>
+        <div class="res-chips" id="resChips"></div>
+      </div>
+
+      <div class="card trace-card">
+        <div class="sb-label" style="margin-bottom:8px">CSP trace</div>
+        <div class="trace-inner" id="traceInner"><span style="color:var(--text3)">— no trace yet —</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const COLORS=[
+  {name:'Red',    hex:'#E24B4A'},
+  {name:'Blue',   hex:'#378ADD'},
+  {name:'Green',  hex:'#639922'},
+  {name:'Amber',  hex:'#BA7517'},
+  {name:'Purple', hex:'#7F77DD'},
+  {name:'Teal',   hex:'#1D9E75'},
+];
+
+let regions=[];
+let adjacency=[];
+let activeColors=[0,1,2];
+let solution=null;
+let currentTab='map';
+
+function addRegion(){
+  const inp=document.getElementById('newRegion');
+  const val=inp.value.trim();
+  if(!val||regions.includes(val))return;
+  regions.push(val);inp.value='';render();
+}
+function removeRegion(r){
+  regions=regions.filter(x=>x!==r);
+  adjacency=adjacency.filter(([a,b])=>a!==r&&b!==r);
+  solution=null;render();
+}
+function addAdj(){
+  const a=document.getElementById('adjA').value;
+  const b=document.getElementById('adjB').value;
+  if(!a||!b||a===b)return;
+  const key=[a,b].sort().join('|');
+  if(adjacency.some(([x,y])=>[x,y].sort().join('|')===key))return;
+  adjacency.push([a,b]);solution=null;render();
+}
+function removeAdj(i){adjacency.splice(i,1);solution=null;render();}
+function toggleColor(i){
+  if(activeColors.includes(i)){if(activeColors.length<=2)return;activeColors=activeColors.filter(x=>x!==i);}
+  else activeColors.push(i);
+  solution=null;render();
+}
+
+function render(){
+  document.getElementById('regionChips').innerHTML=regions.map(r=>
+    `<span class="chip">${r}<span class="x" onclick="removeRegion('${r}')">✕</span></span>`).join('');
+  document.getElementById('adjList').innerHTML=adjacency.map(([a,b],i)=>
+    `<div class="adj-item"><span class="name">${a}</span><span class="sep">—</span><span class="name">${b}</span><span class="x" onclick="removeAdj(${i})">✕</span></div>`).join('');
+  const opts=regions.map(r=>`<option>${r}</option>`).join('');
+  document.getElementById('adjA').innerHTML=opts;
+  document.getElementById('adjB').innerHTML=opts;
+  document.getElementById('palette').innerHTML=COLORS.map((c,i)=>
+    `<div class="cpill ${activeColors.includes(i)?'active':'off'}" style="background:${c.hex}" title="${c.name}" onclick="toggleColor(${i})"></div>`).join('');
+  renderResult();drawCanvas();
+}
+
+function renderResult(){
+  const sp=document.getElementById('statusPill');
+  const rc=document.getElementById('resChips');
+  if(!solution){sp.className='pill idle';sp.textContent='waiting';rc.innerHTML='';return;}
+  if(solution==='fail'){
+    sp.className='pill err';sp.textContent='no solution';
+    rc.innerHTML='<span style="font-size:12px;color:var(--danger-text)">Try adding more colors</span>';return;
+  }
+  sp.className='pill ok';sp.textContent='solved';
+  rc.innerHTML=regions.map(r=>{
+    const c=COLORS.find(x=>x.name===solution[r]);
+    return `<div class="rchip"><div class="dot" style="background:${c?c.hex:'#ccc'}"></div><span class="rn">${r}</span><span class="rc">${solution[r]||'—'}</span></div>`;
+  }).join('');
+}
+
+function switchTab(t){
+  currentTab=t;
+  document.getElementById('tab-map').className='tab'+(t==='map'?' active':'');
+  document.getElementById('tab-graph').className='tab'+(t==='graph'?' active':'');
+  drawCanvas();
+}
+
+function isDark(){return window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches;}
+
+function drawCanvas(){
+  const hint=document.getElementById('hintMsg');
+  const canvas=document.getElementById('mapCanvas');
+  const wrap=document.getElementById('canvasWrap');
+  if(regions.length===0){canvas.style.display='none';hint.style.display='block';return;}
+  canvas.style.display='block';hint.style.display='none';
+  const W=wrap.offsetWidth||500,H=Math.max(300,wrap.offsetHeight||300);
+  canvas.width=W*2;canvas.height=H*2;
+  canvas.style.width=W+'px';canvas.style.height=H+'px';
+  const ctx=canvas.getContext('2d');ctx.scale(2,2);
+  currentTab==='map'?drawMapView(ctx,W,H):drawGraphView(ctx,W,H);
+}
+
+function getSeeds(W,H){
+  const n=regions.length,cx=W/2,cy=H/2,r=Math.min(W,H)*0.33;
+  return regions.map((_,i)=>{
+    const a=(2*Math.PI*i/n)-Math.PI/2;
+    return{x:cx+r*Math.cos(a),y:cy+r*Math.sin(a)};
+  });
+}
+
+function hexToRgb(h){
+  return[parseInt(h.slice(1,3),16)||180,parseInt(h.slice(3,5),16)||180,parseInt(h.slice(5,7),16)||180];
+}
+
+function drawMapView(ctx,W,H){
+  const dark=isDark();
+  ctx.clearRect(0,0,W,H);
+  const seeds=getSeeds(W,H);
+  const STEP=3,cols=Math.ceil(W/STEP),rows=Math.ceil(H/STEP);
+  const cell=new Int16Array(cols*rows);
+  for(let py=0;py<rows;py++)for(let px=0;px<cols;px++){
+    let best=0,bd=1e12;
+    seeds.forEach((s,i)=>{const d=(px*STEP-s.x)**2+(py*STEP-s.y)**2;if(d<bd){bd=d;best=i;}});
+    cell[py*cols+px]=best;
+  }
+  const img=ctx.createImageData(W,H);const data=img.data;
+  for(let py=0;py<rows;py++)for(let px=0;px<cols;px++){
+    const ci=cell[py*cols+px];
+    const r=regions[ci];
+    const col=solution&&solution!=='fail'?COLORS.find(c=>c.name===solution[r]):null;
+    const hex=col?col.hex:(dark?'#2e2e2b':'#e8e6de');
+    let bound=false;
+    for(const[dx,dy]of[[0,1],[0,-1],[1,0],[-1,0]]){
+      const nx=px+dx,ny=py+dy;
+      if(nx<0||ny<0||nx>=cols||ny>=rows){bound=true;break;}
+      if(cell[ny*cols+nx]!==ci){bound=true;break;}
+    }
+    const rgb=hexToRgb(hex),f=bound?.6:1;
+    for(let sy=0;sy<STEP&&py*STEP+sy<H;sy++)for(let sx=0;sx<STEP&&px*STEP+sx<W;sx++){
+      const idx=((py*STEP+sy)*W+(px*STEP+sx))*4;
+      data[idx]=Math.round(rgb[0]*f);data[idx+1]=Math.round(rgb[1]*f);data[idx+2]=Math.round(rgb[2]*f);data[idx+3]=255;
+    }
+  }
+  ctx.putImageData(img,0,0);
+  seeds.forEach((s,i)=>{
+    const col=solution&&solution!=='fail'?COLORS.find(c=>c.name===solution[regions[i]]):null;
+    ctx.font='bold 13px system-ui,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillStyle=col?col.hex:(dark?'rgba(255,255,255,.5)':'rgba(0,0,0,.4)');
+    ctx.fillText(regions[i],s.x,s.y);
+  });
+}
+
+function drawGraphView(ctx,W,H){
+  const dark=isDark();
+  ctx.clearRect(0,0,W,H);
+  const seeds=getSeeds(W,H);
+  const drawn=new Set();
+  adjacency.forEach(([a,b])=>{
+    const ia=regions.indexOf(a),ib=regions.indexOf(b);
+    if(ia<0||ib<0)return;
+    const key=[ia,ib].sort().join('-');if(drawn.has(key))return;drawn.add(key);
+    ctx.beginPath();ctx.moveTo(seeds[ia].x,seeds[ia].y);ctx.lineTo(seeds[ib].x,seeds[ib].y);
+    ctx.strokeStyle=dark?'rgba(255,255,255,.1)':'rgba(0,0,0,.1)';ctx.lineWidth=1.5;ctx.setLineDash([4,4]);ctx.stroke();ctx.setLineDash([]);
+  });
+  const nr=22;
+  regions.forEach((r,i)=>{
+    const{x,y}=seeds[i];
+    const col=solution&&solution!=='fail'?COLORS.find(c=>c.name===solution[r]):null;
+    ctx.beginPath();ctx.arc(x,y,nr,0,Math.PI*2);
+    ctx.fillStyle=col?col.hex:(dark?'#333':'#e8e6de');ctx.fill();
+    ctx.strokeStyle=col?col.hex:(dark?'#555':'#c8c6bc');ctx.lineWidth=2;ctx.stroke();
+    ctx.font='bold 12px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillStyle=col?'#fff':(dark?'#ddd':'#333');ctx.fillText(r,x,y);
+    if(col){ctx.font='10px system-ui';ctx.fillStyle=dark?'rgba(255,255,255,.4)':'rgba(0,0,0,.4)';ctx.fillText(col.name,x,y+nr+12);}
+  });
+}
+
+function solve(){
+  const colors=activeColors.map(i=>COLORS[i].name);
+  const nb={};regions.forEach(r=>{nb[r]=new Set();});
+  adjacency.forEach(([a,b])=>{if(nb[a]&&nb[b]){nb[a].add(b);nb[b].add(a);}});
+  const trace=[],asgn={};
+  function mrv(){
+    const u=regions.filter(r=>!(r in asgn));if(!u.length)return null;
+    return u.reduce((best,r)=>{
+      const rem=colors.filter(c=>![...nb[r]].some(n=>asgn[n]===c)).length;
+      const brem=colors.filter(c=>![...nb[best]].some(n=>asgn[n]===c)).length;
+      return rem<brem?r:best;
+    });
+  }
+  function ok(reg,col){return![...nb[reg]].some(n=>asgn[n]===col);}
+  function bt(){
+    const reg=mrv();if(!reg)return true;
+    for(const col of colors){
+      if(ok(reg,col)){
+        asgn[reg]=col;trace.push({t:'a',m:`assign  ${reg}  →  ${col}`});
+        if(bt())return true;
+        trace.push({t:'b',m:`backtrack ${reg} (${col})`});delete asgn[reg];
+      }
+    }
+    return false;
+  }
+  const found=bt();
+  solution=found?{...asgn}:'fail';
+  const ti=document.getElementById('traceInner');
+  ti.innerHTML=trace.slice(0,35).map(t=>`<div class="${t.t==='a'?'t-a':'t-b'}">${t.m}</div>`).join('')
+    +(trace.length>35?`<div>… ${trace.length-35} more steps</div>`:'');
+  render();
+}
+
+function loadSample(){
+  regions=['A','B','C','D'];
+  adjacency=[['A','B'],['A','C'],['B','C'],['B','D'],['C','D']];
+  activeColors=[0,1,2];solution=null;
+  document.getElementById('traceInner').innerHTML='<span style="color:var(--text3)">— no trace yet —</span>';
+  render();
+}
+
+function clearAll(){
+  regions=[];adjacency=[];activeColors=[0,1,2];solution=null;
+  document.getElementById('traceInner').innerHTML='<span style="color:var(--text3)">— no trace yet —</span>';
+  render();
+}
+
+window.addEventListener('resize',()=>drawCanvas());
+loadSample();
+</script>
+</body>
+</html>
