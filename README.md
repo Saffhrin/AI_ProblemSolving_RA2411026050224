@@ -121,7 +121,7 @@ Algorithm trace:
 ---
 
 ## Live Website
-[View interactive demo on GitHub Pages](https://yourusername.github.io/AI_ProblemSolving_YourName/)
+https://saffhrin.github.io/AI_ProblemSolving_RA2411026050224/
 
 ## Contributed by
 X.P.Saffhrin , RA2411026050224
